@@ -21,7 +21,7 @@ func main() {
 				Action: func(cCtx *cli.Context) error {
 					b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
 					if err != nil {
-						panic(err)
+						return err
 					}
 					priv, _ := btcec.PrivKeyFromBytes(b)
 
@@ -34,76 +34,36 @@ func main() {
 				Name:  "signb64",
 				Usage: "sign a base64 document",
 				Action: func(cCtx *cli.Context) error {
-					b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
-					if err != nil {
-						panic(err)
-					}
-					priv, _ := btcec.PrivKeyFromBytes(b)
-
 					doc, err := base64.StdEncoding.DecodeString(cCtx.Args().Get(1))
 					if err != nil {
-						panic(err)
+						return err
 					}
-					h := sha256.New()
-					h.Write(doc)
-
-					signature, _ := schnorr.Sign(priv, h.Sum(nil))
-					fmt.Printf("%s\n", base64.StdEncoding.EncodeToString(signature.Serialize()))
-					return nil
+					return sign(cCtx, doc)
 				},
 			},
 			{
 				Name:  "sign",
 				Usage: "sign a string document",
 				Action: func(cCtx *cli.Context) error {
-					b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
-					if err != nil {
-						panic(err)
-					}
-					priv, _ := btcec.PrivKeyFromBytes(b)
-
-					h := sha256.New()
-					h.Write([]byte(cCtx.Args().Get(1)))
-
-					signature, _ := schnorr.Sign(priv, h.Sum(nil))
-					fmt.Printf("%s\n", base64.StdEncoding.EncodeToString(signature.Serialize()))
-					return nil
+					return sign(cCtx, []byte(cCtx.Args().Get(1)))
 				},
 			},
 			{
 				Name:  "verify",
 				Usage: "verify a schnorr signature",
 				Action: func(cCtx *cli.Context) error {
-					b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
+					return verify(cCtx, []byte(cCtx.Args().Get(2)))
+				},
+			},
+			{
+				Name:  "verifyb64",
+				Usage: "verify a schnorr signature",
+				Action: func(cCtx *cli.Context) error {
+					doc, err := base64.StdEncoding.DecodeString(cCtx.Args().Get(2))
 					if err != nil {
-						panic(err)
+						return err
 					}
-
-					publicKey, err := schnorr.ParsePubKey(b)
-					if err != nil {
-						panic(err)
-					}
-
-					sigBytes, err := base64.StdEncoding.DecodeString(cCtx.Args().Get(1))
-					if err != nil {
-						panic(err)
-					}
-
-					signature, err := schnorr.ParseSignature(sigBytes)
-					if err != nil {
-						panic(err)
-					}
-
-					h := sha256.New()
-					h.Write([]byte(cCtx.Args().Get(2)))
-
-					if !signature.Verify(h.Sum(nil), publicKey) {
-						fmt.Printf("signature does not verify\n")
-						os.Exit(1)
-					}
-
-					fmt.Printf("signature verifies\n")
-					return nil
+					return verify(cCtx, doc)
 				},
 			},
 		},
@@ -112,4 +72,52 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func sign(cCtx *cli.Context, doc []byte) error {
+	b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
+	if err != nil {
+		return err
+	}
+	priv, _ := btcec.PrivKeyFromBytes(b)
+
+	h := sha256.New()
+	h.Write(doc)
+
+	signature, _ := schnorr.Sign(priv, h.Sum(nil))
+	fmt.Printf("%s\n", base64.StdEncoding.EncodeToString(signature.Serialize()))
+	return nil
+}
+
+func verify(cCtx *cli.Context, doc []byte) error {
+	b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
+	if err != nil {
+		return err
+	}
+
+	publicKey, err := schnorr.ParsePubKey(b)
+	if err != nil {
+		return err
+	}
+
+	sigBytes, err := base64.StdEncoding.DecodeString(cCtx.Args().Get(1))
+	if err != nil {
+		return err
+	}
+
+	signature, err := schnorr.ParseSignature(sigBytes)
+	if err != nil {
+		return err
+	}
+
+	h := sha256.New()
+	h.Write(doc)
+
+	if !signature.Verify(h.Sum(nil), publicKey) {
+		fmt.Printf("signature does not verify\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("signature verifies\n")
+	return nil
 }
