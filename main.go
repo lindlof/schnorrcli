@@ -70,6 +70,42 @@ func main() {
 					return nil
 				},
 			},
+			{
+				Name:  "verify",
+				Usage: "verify a schnorr signature",
+				Action: func(cCtx *cli.Context) error {
+					b, err := base64.StdEncoding.DecodeString(cCtx.Args().First())
+					if err != nil {
+						panic(err)
+					}
+
+					publicKey, err := schnorr.ParsePubKey(b)
+					if err != nil {
+						panic(err)
+					}
+
+					sigBytes, err := base64.StdEncoding.DecodeString(cCtx.Args().Get(1))
+					if err != nil {
+						panic(err)
+					}
+
+					signature, err := schnorr.ParseSignature(sigBytes)
+					if err != nil {
+						panic(err)
+					}
+
+					h := sha256.New()
+					h.Write([]byte(cCtx.Args().Get(2)))
+
+					if !signature.Verify(h.Sum(nil), publicKey) {
+						fmt.Printf("signature does not verify\n")
+						os.Exit(1)
+					}
+
+					fmt.Printf("signature verifies\n")
+					return nil
+				},
+			},
 		},
 	}
 
